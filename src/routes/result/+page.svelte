@@ -99,7 +99,7 @@
     </div>
 
     <div style="text-align:center; margin-top: 30px;">
-      <button class="tts-btn" on:click={downloadCSV}>CSV 다운로드</button>
+      <button class="tts-btn" on:click={downloadCSV}>결과 저장</button>
     </div>
   {/if}
 </main>
