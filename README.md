@@ -1,7 +1,10 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 # adhd
 adhd voice recognition
 =======
+=======
+>>>>>>> origin/main
 # sv
 
 Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
@@ -40,4 +43,7 @@ npm run build
 You can preview the production build with `npm run preview`.
 
 > To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+<<<<<<< HEAD
 >>>>>>> 09d6284 (커밋메세지)
+=======
+>>>>>>> origin/main
