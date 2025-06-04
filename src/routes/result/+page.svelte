@@ -28,7 +28,9 @@
   }
 
   function downloadCSV() {
-    const header = "ID,날짜시간,이름,성별,연령대,거주지역,응답,총점,총평";
+    const questionCount = answers.length;
+    const answerHeaders = Array.from({length: questionCount}, (_, i) => `응답${i+1}`);
+    const header = ["ID","날짜시간","이름","성별","연령대","거주지역",...answerHeaders,"총점","총평"].join(",");
     const row = makeCSVRow();
     const csv = header + "\n" + row;
     const BOM = "\uFEFF";
@@ -56,8 +58,8 @@
       ...answers.map(a => options[parseInt(a) - 1] || (a || "")),
       `"${totalScore}"`,
       `"${summary}"`
-    ];
-    return row.join(',');
+    ].join(",");
+    return row;
   }
 </script>
 
