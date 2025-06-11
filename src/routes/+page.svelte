@@ -41,7 +41,7 @@
 
     // 오디오 재생 + 끝나면 상태 전환
     async function playTTS(idx) {
-        const res = await fetch(`http://localhost:6901/question/${idx}`);
+        const res = await fetch(`https://192.168.3.19:6901/question/${idx}`);
         const blob = await res.blob();
         if (audioUrls[idx]) URL.revokeObjectURL(audioUrls[idx]);
         audioUrls[idx] = URL.createObjectURL(blob);
@@ -93,7 +93,7 @@
             const formData = new FormData();
             formData.append("file", blob, "mic-test.webm");
             try {
-                const res = await fetch("http://localhost:6901/stt", {
+                const res = await fetch("https://192.168.3.19:6901/stt", {
                     method: "POST",
                     body: formData
                 });
@@ -157,7 +157,7 @@
             const blob = new Blob(audioChunksArr[idx], { type: 'audio/webm' });
             const formData = new FormData();
             formData.append("file", blob, `answer${idx}.webm`);
-            const res = await fetch("http://localhost:6901/stt", {
+            const res = await fetch("https://192.168.3.19:6901/stt", {
                 method: "POST",
                 body: formData
             });
@@ -211,7 +211,7 @@
             formData.append("file", blob, `answer${idx}.webm`);
 
             try {
-                const res = await fetch("http://localhost:6901/stt", { method: "POST", body: formData });
+                const res = await fetch("https://192.168.3.19:6901/stt", { method: "POST", body: formData });
                 const data = await res.json();
                 answerTexts[idx] = data.text || data.error || "(음성 인식 실패)";
                 const parsed = parseAnswer(answerTexts[idx]);
