@@ -2,6 +2,8 @@
     import { onMount, tick } from 'svelte';
     import { goto } from '$app/navigation';
 
+     const API = "http://localhost:5983";
+
     // 문항 리스트
     const questions = [
         "대화를 할 때 잘 듣지 않는 경우가 있다.",
@@ -19,6 +21,24 @@
     
     // 오디오 관리
     let audioUrls = Array(questions.length).fill("");
+
+    $: if (age) {
+        [0,1].forEach(idx => {
+        if (idx < questions.length && !audioUrls[idx]) {
+            const url = `${API}/question/${idx}?age=${encodeURIComponent(age)}`;
+            fetch(url)
+            .then(res => res.blob())
+            .then(blob => {
+                // 기존 URL 있으면 해제
+                if (audioUrls[idx]) URL.revokeObjectURL(audioUrls[idx]);
+                audioUrls[idx] = URL.createObjectURL(blob);
+                audioUrls = [...audioUrls]; // 리액티브 갱신
+                console.log(`[prefetch on age] idx=${idx} ready`);
+            })
+            .catch(err => console.warn("prefetch failed", err));
+        }
+        });
+    }
 
     // 마이크 테스트
     let micTestRecording = false;
@@ -41,35 +61,44 @@
 
     // 오디오 재생 + 끝나면 상태 전환
     async function playTTS(idx) {
-        const res = await fetch(`http://localhost:6901/question/${idx}`);
+    // 1) 현재 문항 한 번만 fetch
+    if (!audioUrls[idx]) {
+        const url = `${API}/question/${idx}?age=${encodeURIComponent(age)}`;
+        const res = await fetch(url);
         const blob = await res.blob();
-        if (audioUrls[idx]) URL.revokeObjectURL(audioUrls[idx]);
         audioUrls[idx] = URL.createObjectURL(blob);
         audioUrls = [...audioUrls];
-
-        await tick();
-        const audioEl = document.getElementById(`audio-${idx}`);
-        questionStates[idx] = 'playing';
-        questionStates = [...questionStates];
-        return new Promise((resolve) => {
-            if (audioEl) {
-                audioEl.currentTime = 0;
-                audioEl.play();
-                audioEl.onended = () => {
-                    questionStates[idx] = 'recording'; // 읽기 끝, 녹음 시작
-                    questionStates = [...questionStates];
-                    startRecording(idx);
-                    resolve();
-                };
-            } else {
-                // audio 태그 없음: 바로 녹음 시작
-                questionStates[idx] = 'recording';
-                questionStates = [...questionStates];
-                startRecording(idx);
-                resolve();
-            }
-        });
     }
+
+    // 2) 재생 준비
+    await tick();
+    const audioEl = document.getElementById(`audio-${idx}`);
+    audioEl.preload = "auto";
+    audioEl.load();
+    await new Promise(r => audioEl.onloadedmetadata = r);
+    audioEl.play();
+
+    // 3) 다음 문항만 미리 fetch
+    const next = idx + 1;
+    if (next < questions.length && !audioUrls[next]) {
+        const nextUrl = `${API}/question/${next}?age=${encodeURIComponent(age)}`;
+        fetch(nextUrl)
+        .then(r => r.blob())
+        .then(b => {
+            audioUrls[next] = URL.createObjectURL(b);
+            audioUrls = [...audioUrls];
+        })
+        .catch(()=>{});
+    }
+
+    return new Promise(resolve => {
+        audioEl.onended = () => {
+        startRecording(idx);
+        resolve();
+        };
+    });
+    }
+
 
     async function startMicTest() {
         micTestResult = "";
@@ -93,7 +122,7 @@
             const formData = new FormData();
             formData.append("file", blob, "mic-test.webm");
             try {
-                const res = await fetch("http://localhost:6901/stt", {
+                const res = await fetch("http://localhost:5983/stt", {
                     method: "POST",
                     body: formData
                 });
@@ -142,41 +171,6 @@
         return "";
     }
 
-    async function startAnswerRecording(idx) {
-        answerTexts[idx] = "";
-        answers[idx] = "";
-        answerRecordings[idx] = true;
-        audioChunksArr[idx] = [];
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorders[idx] = new MediaRecorder(stream);
-
-        mediaRecorders[idx].ondataavailable = e => {
-            audioChunksArr[idx].push(e.data);
-        };
-        mediaRecorders[idx].onstop = async () => {
-            const blob = new Blob(audioChunksArr[idx], { type: 'audio/webm' });
-            const formData = new FormData();
-            formData.append("file", blob, `answer${idx}.webm`);
-            const res = await fetch("http://localhost:6901/stt", {
-                method: "POST",
-                body: formData
-            });
-            const data = await res.json();
-            answerTexts[idx] = data.text || data.error || "(음성 인식 실패)";
-            const parsed = parseAnswer(answerTexts[idx]);
-            answers[idx] = parsed;
-            answerRecordings[idx] = false;
-        };
-        mediaRecorders[idx].start();
-    }
-
-    function stopAnswerRecording(idx) {
-        if (mediaRecorders[idx]) {
-            mediaRecorders[idx].stop();
-            answerRecordings[idx] = false;
-        }
-    }
-
     function setAnswer(qidx, value) {
         if (finishSurvey) {
             answers[qidx] = value.toString();
@@ -184,6 +178,11 @@
     }
 
     function startSurvey() {
+        console.log("[startSurvey] age =", age);
+        if (!age) {
+            alert("설문을 시작하려면 연령대를 선택해주세요.");
+            return;
+        }
         surveyStarted = true;
         questionStates = Array(questions.length).fill('idle');
         curIdx = 0;
@@ -191,6 +190,7 @@
     }
 
     async function recordAndRecognize(idx) {
+        console.log(`[STT] recordAndRecognize start for idx=${idx}`);
         while (true) {
             guideMsg = "";
             audioChunksArr[idx] = [];
@@ -211,7 +211,7 @@
             formData.append("file", blob, `answer${idx}.webm`);
 
             try {
-                const res = await fetch("http://localhost:6901/stt", { method: "POST", body: formData });
+                const res = await fetch("http://localhost:5983/stt", { method: "POST", body: formData });
                 const data = await res.json();
                 answerTexts[idx] = data.text || data.error || "(음성 인식 실패)";
                 const parsed = parseAnswer(answerTexts[idx]);
@@ -241,42 +241,7 @@
             }
         }
     }
-
-    function makeCSVRow() {
-        const id = 0;
-        const datetime = `"${new Date().toLocaleString("ko-KR", { hour12: false })}"`;
-        const row = [
-            id,
-            datetime,
-            `"${name}"`,
-            `"${gender}"`,
-            `"${age}"`,
-            `"${region}"`,
-            ...answers.map(ans => ans ? ans : "")
-        ];
-        return row.join(",");
-    }
-
-    function makeCSVFile() {
-        const header = "ID,날짜시간,이름,성별,연령대,거주지역,응답";
-        const row = makeCSVRow();
-        return header + "\n" + row;
-    }
-
-    function downloadCSV() {
-        const csv = makeCSVFile();
-        const BOM = "\uFEFF"
-        const blob = new Blob([BOM + csv], { type: "text/csv;charset=utf-8;" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `설문결과.csv`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-    }
-
+    
     function onSurveyFinish() {
         if (!name || !gender || !age || !region || answers.some(ans => !ans)) {
             alert("모든 정보를 입력하고 각 문항에 답변을 완료해주세요.");
@@ -348,11 +313,13 @@
             <div class="mic-ok" style="margin-top:7px;">마이크 테스트 완료</div>
         {/if}
     </div>
+    
     {#if !surveyStarted && !finishSurvey}
         <div style="text-align:center; margin: 24px 0;">
             <button class="tts-btn" on:click={startSurvey} style="min-width:130px;">설문 시작</button>
         </div>
     {/if}
+
     <div class="questions-wrap">
         {#each questions as q, i}
         <div class="question-block" style="opacity:{finishSurvey ? 1 : (curIdx == i ? 1 : 0.5)};">
@@ -387,7 +354,7 @@
                     {/each}
                 </div>
             </div>
-            <audio id="audio-{i}" src={audioUrls[i]} />  
+            <audio id="audio-{i}" src={audioUrls[i]} preload="auto"/>  
             {#if guideMsg && curIdx == i}
                 <div style="color:red;margin-top:8px;">{guideMsg}</div>
             {/if}
