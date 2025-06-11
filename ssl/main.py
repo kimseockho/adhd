@@ -29,7 +29,7 @@ ANSWERS = ["1번", "2번", "3번", "4번",
         "그렇다", "자주그렇다"]
 
 # Whisper 모델 미리 로드 (GPU 가능)
-stt_model = whisper.load_model("medium", device="cuda:1")
+stt_model = whisper.load_model("medium", device="cuda:0")
 
 def transcribe(webm_path):
     txt = stt_model.transcribe(
@@ -45,6 +45,10 @@ def transcribe(webm_path):
     best, score, _ = process.extractOne(
         txt, ANSWERS, scorer=fuzz.token_sort_ratio)
     return best if score >= 70 else txt
+
+@app.get("/")
+def root():
+    return {"message": "FastAPI 서버 정상 작동 중"}
 
 @app.get("/question/{num}")
 def get_question(num: int):
