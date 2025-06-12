@@ -78,12 +78,17 @@ def transcribe(webm_path):
     return best if score >= 70 else txt
 
 @app.get("/question/{num}")
-def get_question(num: int, age: str = Query(None, description="ex: '10대 이하'")):
+def get_question(num: int, age: str = Query(None)):
     text = QUESTIONS[num]
+
     if age == "10대 이하":
         wav_bytes = zonos_tts(text, speaker_conan)
         return Response(content=wav_bytes, media_type="audio/wav")
-    tts = gTTS(text, lang="ko")
+
+    # age 값이 "40대", "50대 이상"일 때만 느린 gTTS
+    slow = age in ["40대", "50대 이상"]
+
+    tts = gTTS(text, lang="ko", slow=slow)
     buf = io.BytesIO()
     tts.write_to_fp(buf)
     buf.seek(0)
