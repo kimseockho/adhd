@@ -2,7 +2,7 @@
     import { onMount, tick } from 'svelte';
     import { goto } from '$app/navigation';
 
-     const API = "http://localhost:5983";
+     const API = "https://localhost:5983";
 
     // 문항 리스트
     const questions = [
@@ -122,7 +122,7 @@
             const formData = new FormData();
             formData.append("file", blob, "mic-test.webm");
             try {
-                const res = await fetch("http://localhost:5983/stt", {
+                const res = await fetch("https://localhost:5983/stt", {
                     method: "POST",
                     body: formData
                 });
@@ -211,7 +211,7 @@
             formData.append("file", blob, `answer${idx}.webm`);
 
             try {
-                const res = await fetch("http://localhost:5983/stt", { method: "POST", body: formData });
+                const res = await fetch("https://localhost:5983/stt", { method: "POST", body: formData });
                 const data = await res.json();
                 answerTexts[idx] = data.text || data.error || "(음성 인식 실패)";
                 const parsed = parseAnswer(answerTexts[idx]);

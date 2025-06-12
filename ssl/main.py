@@ -14,6 +14,7 @@ import subprocess # subprocess 모듈을 사용하여 ffmpeg를 호출할 수 �
 from zonos.model import Zonos
 from zonos.conditioning import make_cond_dict
 from zonos.utils import DEFAULT_DEVICE
+import json
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("⏱️ Using device:", device)
@@ -39,7 +40,8 @@ def zonos_tts(text: str, speaker_emb):
     buf.seek(0)
     return buf.read()
 
-SUPPRESS = json.load(open("suppress.json"))   # ← ① 토큰 목록 로드
+suppress_path = os.path.join(os.path.dirname(__file__), "suppress.json")
+SUPPRESS = json.load(open(suppress_path))   # ← ① 토큰 목록 로드
 
 app.add_middleware(
     CORSMiddleware,
@@ -105,3 +107,7 @@ async def stt(file: UploadFile = File(...)):
     text = transcribe(wav)
     os.remove(src.name); os.remove(wav)
     return {"text": text}
+
+@app.get("/")
+def root():
+    return {"message": "FastAPI 서버 정상 작동 중"}
