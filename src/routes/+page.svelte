@@ -2,10 +2,30 @@
     import { onMount, tick } from 'svelte';
     import { goto } from '$app/navigation';
 
+     const API = "https://localhost:5983";
+
     // 문항 리스트
     const questions = [
         "대화를 할 때 잘 듣지 않는 경우가 있다.",
-        "지시를 잘 따르지 않거나 숙제, 임무 등을 완수하지 못하는 경우가 있다."
+        "지시를 잘 따르지 않거나 숙제, 임무 등을 완수하지 못하는 경우가 있다.",
+        "과제나 업무를 수행하는 데 있어서 집중을 잘 못하고, 부주의로 인한 실수가 있다.",
+        "지속적으로 정신력이 필요한 과제에 몰두하는 것을 피하거나, 거부하는 경우가 있다.",
+        "수업이나 놀이에서 집중력을 유지하는 데 어려움을 겪는 경우가 있다.",
+        "활동에 필요한 물건들을 종종 잃어버린다.(예: 준비물, 장난감, 숙제, 연필, 책 등)",
+        "외부 자극에 의해 산만해진다.",
+        "일상적인 일들을 종종 잊어버린다.",
+        "대화 내용 또는 지시사항을 이해하거나 이행하기 등에 어려움을 느끼는 경우가 있다.",
+        "손발이 가만히 있지 않으며, 자리에 앉아서는 계속 몸을 꿈틀거리는 일이 있다.",
+        "조용히 앉아 있어야 하는 상황에 자리에서 일어나 다니는 경우가 종종 있다.",
+        "상황에 맞지 않게 돌아다니거나 지나치게 산만해지는 경우가 있다.",
+        "차분하게 노는 것, 놀이에 몰두하는 것에 어려움을 종종 느낀다.",
+        "끊임없이 움직이거나, 꼼지락 거리는 행동을 하는 경우가 있다.",
+        "지나치게 말을 많이 하는 경우가 있다.",
+        "질문이 끝나기도 전에 불쑥 대답을 해버리는 경우가 있다",
+        "자기 차례를 기다리지 못하는 경우가 있다.",
+        "다른 사람들의 대화나 활동 사이에 끼어들거나 참견하는 경우가 있다.",
+        "차분히 앉아 있거나, 조용히 있는 상황을 견디는 것에 어려움을 겪는 경우가 있다.",
+        "과제나 활동을 체계적으로 하는 데 종종 어려움을 겪는다."
     ];
     // 보기 라벨
     const options = [
@@ -19,6 +39,30 @@
     
     // 오디오 관리
     let audioUrls = Array(questions.length).fill("");
+
+    $: if (age) {
+        [0,1].forEach(idx => {
+            if (idx < questions.length && !audioUrls[idx]) {
+                if (age === "10대 이하") {
+                    const url = `${API}/tts_cache/q${idx}_${encodeURIComponent(age)}.wav`;
+                    // wav 파일 HEAD 체크 생략 가능 (캐시라면 바로 할당)
+                    audioUrls[idx] = url;
+                    audioUrls = [...audioUrls];
+                } else {
+                    // API로 음성 미리 가져오기
+                    const url = `${API}/question/${idx}?age=${encodeURIComponent(age)}`;
+                    fetch(url)
+                        .then(res => res.blob())
+                        .then(blob => {
+                            if (audioUrls[idx]) URL.revokeObjectURL(audioUrls[idx]);
+                            audioUrls[idx] = URL.createObjectURL(blob);
+                            audioUrls = [...audioUrls];
+                        })
+                        .catch(err => console.warn("prefetch failed", err));
+                }
+            }
+        });
+    }
 
     // 마이크 테스트
     let micTestRecording = false;
@@ -41,35 +85,68 @@
 
     // 오디오 재생 + 끝나면 상태 전환
     async function playTTS(idx) {
+<<<<<<< HEAD
+        if (age === "10대 이하") {
+            // 기존 캐시 polling 방식 유지
+            const triggerUrl = `${API}/question/${idx}?age=${encodeURIComponent(age)}`;
+            await fetch(triggerUrl);
+            
+            while (true) {
+                const wavUrl = `${API}/tts_cache/q${idx}_${encodeURIComponent(age)}.wav`;
+                const res = await fetch(wavUrl, { method: 'HEAD' });
+                if (res.status === 200) {
+                    audioUrls[idx] = wavUrl;
+                    audioUrls = [...audioUrls];
+                    break;
+                } else {
+                    guideMsg = "음성 준비 중... 잠시만 기다려주세요.";
+                    await new Promise(r => setTimeout(r, 1000));
+                }
+            }
+        } else {
+            // API에서 직접 받아와서 blob으로 재생
+            const url = `${API}/question/${idx}?age=${encodeURIComponent(age)}`;
+            const res = await fetch(url);
+            const blob = await res.blob();
+            // 기존 URL 있으면 해제
+            if (audioUrls[idx]) URL.revokeObjectURL(audioUrls[idx]);
+            audioUrls[idx] = URL.createObjectURL(blob);
+            audioUrls = [...audioUrls];
+        }
+=======
         const res = await fetch(`https://192.168.3.19:6901/question/${idx}`);
         const blob = await res.blob();
         if (audioUrls[idx]) URL.revokeObjectURL(audioUrls[idx]);
         audioUrls[idx] = URL.createObjectURL(blob);
         audioUrls = [...audioUrls];
+>>>>>>> dev
 
         await tick();
         const audioEl = document.getElementById(`audio-${idx}`);
-        questionStates[idx] = 'playing';
-        questionStates = [...questionStates];
-        return new Promise((resolve) => {
-            if (audioEl) {
-                audioEl.currentTime = 0;
-                audioEl.play();
-                audioEl.onended = () => {
-                    questionStates[idx] = 'recording'; // 읽기 끝, 녹음 시작
-                    questionStates = [...questionStates];
-                    startRecording(idx);
-                    resolve();
-                };
-            } else {
-                // audio 태그 없음: 바로 녹음 시작
-                questionStates[idx] = 'recording';
-                questionStates = [...questionStates];
+        audioEl.preload = "auto";
+        audioEl.load();
+        await new Promise(r => audioEl.onloadedmetadata = r);
+        audioEl.play();
+
+        // 다음 문항 prefetch도 10대 이하만
+        if (age === "10대 이하") {
+            const next = idx + 1;
+            if (next < questions.length && !audioUrls[next]) {
+                const nextUrl = `${API}/tts_cache/q${next}_${encodeURIComponent(age)}.wav`;
+                audioUrls[next] = nextUrl;
+                audioUrls = [...audioUrls];
+            }
+        }
+
+        return new Promise(resolve => {
+            audioEl.onended = () => {
                 startRecording(idx);
                 resolve();
-            }
+            };
         });
     }
+
+
 
     async function startMicTest() {
         micTestResult = "";
@@ -93,7 +170,11 @@
             const formData = new FormData();
             formData.append("file", blob, "mic-test.webm");
             try {
+<<<<<<< HEAD
+                const res = await fetch("https://localhost:5983/stt", {
+=======
                 const res = await fetch("https://192.168.3.19:6901/stt", {
+>>>>>>> dev
                     method: "POST",
                     body: formData
                 });
@@ -142,6 +223,8 @@
         return "";
     }
 
+<<<<<<< HEAD
+=======
     async function startAnswerRecording(idx) {
         answerTexts[idx] = "";
         answers[idx] = "";
@@ -177,6 +260,7 @@
         }
     }
 
+>>>>>>> dev
     function setAnswer(qidx, value) {
         if (finishSurvey) {
             answers[qidx] = value.toString();
@@ -184,6 +268,11 @@
     }
 
     function startSurvey() {
+        console.log("[startSurvey] age =", age);
+        if (!age) {
+            alert("설문을 시작하려면 연령대를 선택해주세요.");
+            return;
+        }
         surveyStarted = true;
         questionStates = Array(questions.length).fill('idle');
         curIdx = 0;
@@ -191,6 +280,7 @@
     }
 
     async function recordAndRecognize(idx) {
+        console.log(`[STT] recordAndRecognize start for idx=${idx}`);
         while (true) {
             guideMsg = "";
             audioChunksArr[idx] = [];
@@ -211,7 +301,11 @@
             formData.append("file", blob, `answer${idx}.webm`);
 
             try {
+<<<<<<< HEAD
+                const res = await fetch("https://localhost:5983/stt", { method: "POST", body: formData });
+=======
                 const res = await fetch("https://192.168.3.19:6901/stt", { method: "POST", body: formData });
+>>>>>>> dev
                 const data = await res.json();
                 answerTexts[idx] = data.text || data.error || "(음성 인식 실패)";
                 const parsed = parseAnswer(answerTexts[idx]);
@@ -241,42 +335,7 @@
             }
         }
     }
-
-    function makeCSVRow() {
-        const id = 0;
-        const datetime = `"${new Date().toLocaleString("ko-KR", { hour12: false })}"`;
-        const row = [
-            id,
-            datetime,
-            `"${name}"`,
-            `"${gender}"`,
-            `"${age}"`,
-            `"${region}"`,
-            ...answers.map(ans => ans ? ans : "")
-        ];
-        return row.join(",");
-    }
-
-    function makeCSVFile() {
-        const header = "ID,날짜시간,이름,성별,연령대,거주지역,응답";
-        const row = makeCSVRow();
-        return header + "\n" + row;
-    }
-
-    function downloadCSV() {
-        const csv = makeCSVFile();
-        const BOM = "\uFEFF"
-        const blob = new Blob([BOM + csv], { type: "text/csv;charset=utf-8;" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `설문결과.csv`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-    }
-
+    
     function onSurveyFinish() {
         if (!name || !gender || !age || !region || answers.some(ans => !ans)) {
             alert("모든 정보를 입력하고 각 문항에 답변을 완료해주세요.");
@@ -348,11 +407,13 @@
             <div class="mic-ok" style="margin-top:7px;">마이크 테스트 완료</div>
         {/if}
     </div>
+    
     {#if !surveyStarted && !finishSurvey}
         <div style="text-align:center; margin: 24px 0;">
             <button class="tts-btn" on:click={startSurvey} style="min-width:130px;">설문 시작</button>
         </div>
     {/if}
+
     <div class="questions-wrap">
         {#each questions as q, i}
         <div class="question-block" style="opacity:{finishSurvey ? 1 : (curIdx == i ? 1 : 0.5)};">
@@ -387,7 +448,7 @@
                     {/each}
                 </div>
             </div>
-            <audio id="audio-{i}" src={audioUrls[i]} />  
+            <audio id="audio-{i}" src={audioUrls[i]} preload="auto"/>  
             {#if guideMsg && curIdx == i}
                 <div style="color:red;margin-top:8px;">{guideMsg}</div>
             {/if}
