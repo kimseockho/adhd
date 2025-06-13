@@ -85,6 +85,7 @@
 
     // 오디오 재생 + 끝나면 상태 전환
     async function playTTS(idx) {
+<<<<<<< HEAD
         if (age === "10대 이하") {
             // 기존 캐시 polling 방식 유지
             const triggerUrl = `${API}/question/${idx}?age=${encodeURIComponent(age)}`;
@@ -112,6 +113,13 @@
             audioUrls[idx] = URL.createObjectURL(blob);
             audioUrls = [...audioUrls];
         }
+=======
+        const res = await fetch(`https://192.168.3.19:6901/question/${idx}`);
+        const blob = await res.blob();
+        if (audioUrls[idx]) URL.revokeObjectURL(audioUrls[idx]);
+        audioUrls[idx] = URL.createObjectURL(blob);
+        audioUrls = [...audioUrls];
+>>>>>>> dev
 
         await tick();
         const audioEl = document.getElementById(`audio-${idx}`);
@@ -162,7 +170,11 @@
             const formData = new FormData();
             formData.append("file", blob, "mic-test.webm");
             try {
+<<<<<<< HEAD
                 const res = await fetch("https://localhost:5983/stt", {
+=======
+                const res = await fetch("https://192.168.3.19:6901/stt", {
+>>>>>>> dev
                     method: "POST",
                     body: formData
                 });
@@ -211,6 +223,44 @@
         return "";
     }
 
+<<<<<<< HEAD
+=======
+    async function startAnswerRecording(idx) {
+        answerTexts[idx] = "";
+        answers[idx] = "";
+        answerRecordings[idx] = true;
+        audioChunksArr[idx] = [];
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorders[idx] = new MediaRecorder(stream);
+
+        mediaRecorders[idx].ondataavailable = e => {
+            audioChunksArr[idx].push(e.data);
+        };
+        mediaRecorders[idx].onstop = async () => {
+            const blob = new Blob(audioChunksArr[idx], { type: 'audio/webm' });
+            const formData = new FormData();
+            formData.append("file", blob, `answer${idx}.webm`);
+            const res = await fetch("https://192.168.3.19:6901/stt", {
+                method: "POST",
+                body: formData
+            });
+            const data = await res.json();
+            answerTexts[idx] = data.text || data.error || "(음성 인식 실패)";
+            const parsed = parseAnswer(answerTexts[idx]);
+            answers[idx] = parsed;
+            answerRecordings[idx] = false;
+        };
+        mediaRecorders[idx].start();
+    }
+
+    function stopAnswerRecording(idx) {
+        if (mediaRecorders[idx]) {
+            mediaRecorders[idx].stop();
+            answerRecordings[idx] = false;
+        }
+    }
+
+>>>>>>> dev
     function setAnswer(qidx, value) {
         if (finishSurvey) {
             answers[qidx] = value.toString();
@@ -251,7 +301,11 @@
             formData.append("file", blob, `answer${idx}.webm`);
 
             try {
+<<<<<<< HEAD
                 const res = await fetch("https://localhost:5983/stt", { method: "POST", body: formData });
+=======
+                const res = await fetch("https://192.168.3.19:6901/stt", { method: "POST", body: formData });
+>>>>>>> dev
                 const data = await res.json();
                 answerTexts[idx] = data.text || data.error || "(음성 인식 실패)";
                 const parsed = parseAnswer(answerTexts[idx]);
